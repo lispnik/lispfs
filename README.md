@@ -5,7 +5,8 @@ operation on the mount is a Lisp closure.
 
 It fills a `struct fuse_operations` (a table of ~15 function pointers) with
 closures created by
-[cffi-callback-closures](../cffi-callback-closures), so when you `ls`, `cat`,
+[cffi-callback-closures](https://github.com/lispnik/cffi-callback-closures),
+so when you `ls`, `cat`,
 `echo >`, `mkdir`, or `rm` on the mountpoint, the kernel calls **into Lisp** for
 every syscall. It's the FUSE "table of cooperating callbacks driving real OS
 behavior" pattern.

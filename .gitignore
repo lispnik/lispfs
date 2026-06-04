@@ -1,0 +1,10 @@
+# Lisp compiled output
+*.fasl
+*.fasl.*
+*.lx64fsl
+*.lx32fsl
+*.dx64fsl
+*.dx32fsl
+*.abcl
+*.o
+*.so

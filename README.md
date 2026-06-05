@@ -1,5 +1,7 @@
 # lispfs
 
+[![CI](https://github.com/lispnik/lispfs/actions/workflows/ci.yml/badge.svg)](https://github.com/lispnik/lispfs/actions/workflows/ci.yml)
+
 A **FUSE filesystem implemented in Common Lisp**, where every filesystem
 operation on the mount is a Lisp closure.
 

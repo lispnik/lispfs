@@ -7,8 +7,10 @@
 
 (in-package :asdf)
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (asdf:oos 'asdf:load-op :cffi-grovel))
+;;; NB: cffi-grovel is pulled in only by the lispfs/fuse system via
+;;; :defsystem-depends-on, and its grovel component is referenced by the
+;;; :cffi-grovel-file keyword class -- so loading this file (e.g. to build the
+;;; dependency-free core) does not require cffi-grovel to be installed.
 
 ;;; Core: the virtual filesystem and its backends.  Pure Lisp, no FUSE -- so it
 ;;; can be developed and tested without a mount.
@@ -38,7 +40,7 @@
   :components ((:module "fuse"
                 :serial t
                 :components ((:file "package")
-                             (cffi-grovel:grovel-file "grovel")
+                             (:cffi-grovel-file "grovel")
                              (:file "fuse")))))
 
 (defsystem "lispfs/test"

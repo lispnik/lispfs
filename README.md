@@ -74,6 +74,83 @@ $ mkdir /tmp/lispfs/mem/sub && mv /tmp/lispfs/mem/note.txt /tmp/lispfs/mem/sub/
   `lispfs-fuse.asd`), kept separate from the core so loading `lispfs.asd`
   pulls in no FFI dependencies.
 
+## Writing your own filesystem
+
+You only need one method: `probe`. A backend is any object; for a path (given
+as a list of components — `/a/b` → `("a" "b")`, the root → `()`) it returns one
+of:
+
+```
+(values :dir  (list "name" ...))     ; a directory and its entries
+(values :file octet-vector)          ; a file and its bytes
+:enoent                              ; nothing here
+```
+
+A complete read-only example — files computed on demand:
+
+```lisp
+(defpackage #:myfs (:use #:cl #:lispfs))
+(in-package #:myfs)
+
+(defclass greeter () ())
+
+(defmethod probe ((fs greeter) path)
+  (cond
+    ((null path)                                   ; "/" — list the files
+     (values :dir '("hello" "time" "random")))
+    ((equal path '("hello"))
+     (values :file (string->octets "Hello, world!
+")))
+    ((equal path '("time"))
+     (values :file (string->octets (format nil "~A~%" (get-universal-time)))))
+    ((equal path '("random"))
+     (values :file (string->octets (format nil "~D~%" (random 1000000)))))
+    (t :enoent)))
+```
+
+Mount it (blocks until you unmount — see [Running](#running)):
+
+```lisp
+(asdf:load-system :lispfs-fuse)
+(lispfs.fuse:mount "/tmp/myfs" :root (make-instance 'greeter))
+```
+
+```sh
+$ ls /tmp/myfs
+hello  random  time
+$ cat /tmp/myfs/hello
+Hello, world!
+$ cat /tmp/myfs/time          # recomputed by your closure on every read
+3962...
+```
+
+**Make it writable** by implementing the mutators you want — each returns `0`
+on success or an error keyword (`:enoent`, `:eexist`, `:eisdir`, …):
+
+```lisp
+(defmethod vfs-write  ((fs greeter) path octets offset) ...)
+(defmethod vfs-create ((fs greeter) path) ...)
+(defmethod vfs-mkdir  ((fs greeter) path) ...)
+;; also: vfs-unlink, vfs-rmdir, vfs-truncate, vfs-rename
+```
+
+Files are read-only until then. If you just want a real read/write area without
+writing any of these, reuse `mem-backend`.
+
+**Compose several backends** under names with a `router` (this is exactly what
+`make-default-root` does):
+
+```lisp
+(lispfs.fuse:mount "/tmp/myfs"
+  :root (make-instance 'router
+          :mounts (list (cons "greet"   (make-instance 'greeter))
+                        (cons "scratch" (make-instance 'mem-backend)))))
+;; => /tmp/myfs/greet/hello  and a writable  /tmp/myfs/scratch/
+```
+
+That's it — a read-only filesystem is one `probe` method; the libffi-closure
+plumbing underneath stays invisible.
+
 ## Requirements
 
 The FUSE layer is cross-platform (FUSE 2.9 high-level API). Verified on:

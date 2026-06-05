@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  core:
+    name: Core VFS tests (no FUSE)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SBCL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends sbcl
+
+      - name: Run core test suite
+        env:
+          CL_SOURCE_REGISTRY: "${{ github.workspace }}//:"
+        run: |
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(handler-case (asdf:test-system "lispfs")
+                       (error (e)
+                         (format *error-output* "~&CI FAILURE: ~A~%" e)
+                         (uiop:quit 1)))' \
+            --eval '(uiop:quit 0)'
+
+  fuse-mount:
+    name: Build FUSE layer + mount smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SBCL, FUSE, libffi, and CL dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            sbcl fuse libfuse-dev libffi-dev pkg-config build-essential \
+            cl-cffi cl-bordeaux-threads cl-alexandria cl-trivial-features
+
+      - name: Fetch cffi-callback-closures (sibling dependency)
+        run: git clone --depth 1 https://github.com/lispnik/cffi-callback-closures.git
+
+      - name: Mount lispfs and exercise it
+        env:
+          CL_SOURCE_REGISTRY: "${{ github.workspace }}//:"
+        run: |
+          mkdir -p /tmp/mnt
+          printf '%s\n' \
+            '(require :asdf)' \
+            '(asdf:load-system "lispfs/fuse")' \
+            '(lispfs.fuse:mount "/tmp/mnt")' > /tmp/mount.lisp
+          setsid sh -c 'sbcl --non-interactive --load /tmp/mount.lisp > /tmp/mount.log 2>&1' </dev/null &
+          for i in $(seq 1 30); do mountpoint -q /tmp/mnt && break; sleep 1; done
+          if ! mountpoint -q /tmp/mnt; then echo "mount failed:"; cat /tmp/mount.log; exit 1; fi
+          set -x
+          # computed file (path = function)
+          test "$(cat /tmp/mnt/compute/fib/20)" = "6765"
+          # live-image view
+          cat /tmp/mnt/lisp/implementation
+          # read/write ramfs
+          echo "hello ci" > /tmp/mnt/mem/note.txt
+          test "$(cat /tmp/mnt/mem/note.txt)" = "hello ci"
+          mkdir /tmp/mnt/mem/sub && mv /tmp/mnt/mem/note.txt /tmp/mnt/mem/sub/
+          test "$(cat /tmp/mnt/mem/sub/note.txt)" = "hello ci"
+          # eval REPL
+          echo '(* 6 7)' > /tmp/mnt/lisp/eval
+          test "$(cat /tmp/mnt/lisp/eval)" = "42"
+          set +x
+          fusermount -u /tmp/mnt
+          echo "FUSE mount smoke test passed"

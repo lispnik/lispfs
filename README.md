@@ -68,7 +68,9 @@ $ mkdir /tmp/lispfs/mem/sub && mv /tmp/lispfs/mem/note.txt /tmp/lispfs/mem/sub/
   errno/mode constants. `fuse.lisp` defines each operation as a libffi closure
   that translates the C call to/from the VFS protocol, then fills the struct
   and calls `fuse_main_real`. Each op is wrapped so a Lisp error returns `-EIO`
-  rather than crashing the mount.
+  rather than crashing the mount. This is the `lispfs-fuse` system (in
+  `lispfs-fuse.asd`), kept separate from the core so loading `lispfs.asd`
+  pulls in no FFI dependencies.
 
 ## Requirements
 

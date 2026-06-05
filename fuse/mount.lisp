@@ -23,7 +23,7 @@
                        #p"/Users/mkennedy/Projects/common-lisp/"))
        :inherit-configuration))
 
-(asdf:load-system :lispfs/fuse)
+(asdf:load-system :lispfs-fuse)
 
 ;; If a mountpoint was passed on the command line, mount it now.
 (let ((mp (first (uiop:command-line-arguments))))

@@ -7,10 +7,9 @@
 
 (in-package :asdf)
 
-;;; NB: cffi-grovel is pulled in only by the lispfs/fuse system via
-;;; :defsystem-depends-on, and its grovel component is referenced by the
-;;; :cffi-grovel-file keyword class -- so loading this file (e.g. to build the
-;;; dependency-free core) does not require cffi-grovel to be installed.
+;;; This file defines ONLY the dependency-free core (and its tests).  The FUSE
+;;; binding lives in lispfs-fuse.asd so that merely loading this file does not
+;;; drag in cffi-grovel / cffi / cffi-callback-closures.
 
 ;;; Core: the virtual filesystem and its backends.  Pure Lisp, no FUSE -- so it
 ;;; can be developed and tested without a mount.
@@ -27,21 +26,6 @@
                              (:file "lisp-backend")
                              (:file "compute"))))
   :in-order-to ((test-op (test-op "lispfs/test"))))
-
-;;; The FUSE binding: fills a struct fuse_operations with libffi closures and
-;;; mounts.  Needs macFUSE (libfuse 2.x).  Kept separate so the core builds
-;;; without it.
-(defsystem "lispfs/fuse"
-  :description "Mount a lispfs virtual filesystem via FUSE."
-  :author "Matthew Kennedy"
-  :license "MIT"
-  :defsystem-depends-on ("cffi-grovel")
-  :depends-on ("lispfs" "cffi" "cffi-callback-closures")
-  :components ((:module "fuse"
-                :serial t
-                :components ((:file "package")
-                             (:cffi-grovel-file "grovel")
-                             (:file "fuse")))))
 
 (defsystem "lispfs/test"
   :description "In-process tests for the lispfs core (no mount needed)."
